@@ -6,14 +6,49 @@ const fs = require('fs');
 const { v4: uuidv4 } = require('uuid');
 const store = require('../db/store');
 const { authenticateToken } = require('../middleware/auth');
+const { supabaseService } = require('../config/supabase');
+require('dotenv').config();
 
-// Create upload directory if it doesn't exist
+// Ensure upload directory exists
 const uploadDir = path.join(__dirname, '../../uploads');
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }
 
-// Multer Storage Configuration
+// ---------------------------------------------------------------------------
+// Supabase Storage integration — uses the Storage REST API directly so we
+// don't depend on the supabase-js Realtime/WebSocket layer (which requires
+// Node 22+ or the 'ws' package). Server-side uploads use the SERVICE ROLE
+// key, which bypasses Row Level Security.
+// ---------------------------------------------------------------------------
+const SUPABASE_BUCKET = 'Chat_hub';
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const supabaseReady = !!(SUPABASE_URL && SERVICE_KEY && SUPABASE_URL.startsWith('http'));
+
+// Upload a local file to Supabase Storage and return its public URL.
+// Returns null if Supabase is not configured.
+async function uploadToSupabase(localPath, remoteName, contentType) {
+  if (!supabaseReady) return null;
+  const fileBuffer = fs.readFileSync(localPath);
+  const { error } = await supabaseService.storage
+    .from(SUPABASE_BUCKET)
+    .upload(remoteName, fileBuffer, {
+      contentType: contentType || 'application/octet-stream',
+      upsert: false
+    });
+  if (error) {
+    // If the object already exists, we still try to get the public URL
+    if (!error.message.includes('already exists')) {
+      throw new Error(`Supabase upload failed: ${error.message}`);
+    }
+  }
+  const { data } = supabaseService.storage.from(SUPABASE_BUCKET).getPublicUrl(remoteName);
+  return data.publicUrl;
+}
+
+// Multer Storage Configuration — always land on disk first, then push to
+// Supabase (or keep local if Supabase is unavailable).
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, uploadDir);
@@ -79,14 +114,26 @@ function getCategoryFromMime(mimetype, filename) {
 }
 
 // POST file upload endpoint
-router.post('/', authenticateToken, upload.single('file'), (req, res) => {
+router.post('/', authenticateToken, upload.single('file'), async (req, res) => {
+  let localFilePath = req.file ? req.file.path : null;
+  let publicUrl = null;
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
     const category = getCategoryFromMime(req.file.mimetype, req.file.originalname);
-    const fileUrl = `/uploads/${req.file.filename}`;
+
+    // Try Supabase Storage first; fall back to local disk path if unavailable
+    if (supabaseReady) {
+      try {
+        publicUrl = await uploadToSupabase(req.file.path, req.file.filename, req.file.mimetype);
+      } catch (supaErr) {
+        console.warn('Supabase upload failed, falling back to local storage:', supaErr.message);
+      }
+    }
+    // Fallback: local disk relative URL
+    const fileUrl = publicUrl || `/uploads/${req.file.filename}`;
 
     const uploadRecord = {
       id: uuidv4(),
@@ -108,6 +155,11 @@ router.post('/', authenticateToken, upload.single('file'), (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
+  } finally {
+    // Clean up the local temp file if we successfully uploaded to Supabase
+    if (localFilePath && publicUrl) {
+      fs.unlink(localFilePath, () => {}); // best-effort cleanup
+    }
   }
 });
 

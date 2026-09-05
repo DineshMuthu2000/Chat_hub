@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api, getApiBase } from '../services/api';
-import { PlusCircle, Search, MessageCircle, ThumbsUp, Eye, Tag, Image as ImageIcon, Mic, Camera, X, Loader2 } from 'lucide-react';
+import { PlusCircle, Search, MessageCircle, ThumbsUp, Eye, Tag, Image as ImageIcon, Mic, Camera, X, Loader2, RotateCcw } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import CameraCapture from '../components/CameraCapture';
 import VoiceRecorder from '../components/VoiceRecorder';
@@ -42,6 +42,12 @@ const Doubts = () => {
       setModalError(`File too large (max ${limit / (1024 * 1024)}MB)`);
       return;
     }
+
+    // Memory cleanup: Revoke previous preview URL if it exists
+    if (attachment && attachment.preview) {
+      URL.revokeObjectURL(attachment.preview);
+    }
+
     setModalError('');
     setAttachment({
       file,
@@ -63,11 +69,15 @@ const Doubts = () => {
   };
 
   const handleCameraSend = async (blob) => {
-    const file = new File([blob], `camera_photo_${Date.now()}.jpg`, { type: 'image/jpeg' });
+    // Convert Blob to File object for proper naming and upload
+    const filename = `camera_photo_${Date.now()}.jpg`;
+    const file = new File([blob], filename, { type: 'image/jpeg' });
     setFileAttachment(file, 'image');
   };
 
-  const handleVoiceSend = async (file) => {
+  const handleVoiceSend = async (blob) => {
+    // Handle both File and Blob (VoiceRecorder might send Blob)
+    const file = blob instanceof File ? blob : new File([blob], `voice_note_${Date.now()}.webm`, { type: blob.type || 'audio/webm' });
     setFileAttachment(file, 'audio');
   };
 
@@ -193,15 +203,24 @@ const Doubts = () => {
                     <img src={attachment.preview} alt="attachment preview" className="w-16 h-16 object-cover rounded-lg border border-slate-700" />
                   )}
                   {attachment.kind === 'audio' && (
-                    <div className="w-10 h-10 rounded-full bg-indigo-600/20 flex items-center justify-center shrink-0"><Mic size={18} className="text-indigo-400" /></div>
+                    <div className="w-10 h-10 rounded-full bg-indigo-600/20 flex items-center justify-center shrink-0">
+                      <Mic size={18} className="text-indigo-400" />
+                    </div>
                   )}
                   <div className="flex-1 min-w-0">
                     <p className="text-sm text-slate-200 truncate">
-                      {attachment.kind === 'audio' ? '🎙️ Voice question' : '🖼️ Photo'} — {attachment.name}
+                      {attachment.kind === 'audio' ? '🎙️ Voice note' : '🖼️ Photo'} — {attachment.name}
                     </p>
                     <p className="text-xs text-slate-500">{((attachment.file.size || 0) / 1024).toFixed(0)} KB</p>
                   </div>
-                  <button type="button" onClick={clearAttachment} className="p-1 text-slate-400 hover:text-red-400 shrink-0" title="Remove attachment"><X size={18} /></button>
+                  <div className="flex items-center gap-1">
+                    <button type="button" onClick={() => attachment.kind === 'audio' ? setVoiceOpen(true) : setCameraOpen(true)} className="p-1.5 text-slate-400 hover:text-indigo-400 hover:bg-slate-800 rounded-md transition-colors" title={attachment.kind === 'audio' ? 'Re-record' : 'Retake'}>
+                      <RotateCcw size={18} />
+                    </button>
+                    <button type="button" onClick={clearAttachment} className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-slate-800 rounded-md transition-colors" title="Remove attachment">
+                      <X size={18} />
+                    </button>
+                  </div>
                 </div>
               )}
 
