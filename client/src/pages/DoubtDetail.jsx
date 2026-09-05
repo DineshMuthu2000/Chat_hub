@@ -1,16 +1,36 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { ThumbsUp, MessageCircle, ArrowLeft, Send, CheckCircle, Tag } from 'lucide-react';
+import { useParams, Link, useNavigate } from 'react-router-dom';
+import { ThumbsUp, MessageCircle, ArrowLeft, Send, CheckCircle, Tag, Trash2 } from 'lucide-react';
 import { api, getApiBase } from '../services/api';
 
 const API_BASE = getApiBase();
 
 const DoubtDetail = () => {
   const { id } = useParams();
+  const navigate = useNavigate();
   const [doubt, setDoubt] = useState(null);
   const [loading, setLoading] = useState(true);
   const [answer, setAnswer] = useState('');
   const [currentUser] = useState(JSON.parse(localStorage.getItem('user') || '{}'));
+
+  const handleDeleteDoubt = async () => {
+    if (!window.confirm("Delete this doubt?\n\nThis action cannot be undone.")) return;
+    try {
+      const res = await fetch(`${API_BASE}/doubts/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        alert(data.error || 'Failed to delete doubt');
+        return;
+      }
+      navigate('/doubts');
+    } catch (err) {
+      console.error('Delete error:', err);
+      alert('Error deleting doubt');
+    }
+  };
 
   const fetchDoubt = async () => {
     try {
@@ -94,6 +114,11 @@ const DoubtDetail = () => {
               <ThumbsUp size={20} fill={doubt.is_liked ? "currentColor" : "none"}/> {doubt.likes_count}
             </button>
             <div className="flex items-center gap-2 text-slate-400"><MessageCircle size={20}/> {doubt.answers_count}</div>
+            {(doubt.user_id === currentUser.id || currentUser.role === 'admin') && (
+              <button onClick={handleDeleteDoubt} className="text-rose-500 hover:text-rose-400 flex items-center gap-2">
+                <Trash2 size={20} /> Delete
+              </button>
+            )}
           </div>
           <div className="text-right">
             <div className="text-sm font-medium">By {doubt.anonymous_name}</div>

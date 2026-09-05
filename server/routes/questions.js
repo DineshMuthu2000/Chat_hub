@@ -3,6 +3,7 @@ const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
 const store = require('../db/store');
 const { authenticateToken, optionalAuth } = require('../middleware/auth');
+const { deleteSupabaseFile } = require('../config/supabase');
 
 router.get('/', optionalAuth, (req, res) => {
   try {
@@ -99,6 +100,51 @@ router.post('/:id/answers', authenticateToken, (req, res) => {
     store.answers.push(newAnswer);
     doubt.answers_count = (doubt.answers_count || 0) + 1;
     res.status(201).json(newAnswer);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// DELETE a doubt / question
+router.delete('/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const doubtIndex = store.doubts.findIndex(d => d.id === id);
+    if (doubtIndex === -1) {
+      return res.status(404).json({ error: 'Doubt not found' });
+    }
+
+    const doubt = store.doubts[doubtIndex];
+
+    // Authorization: Owner or Admin
+    const isOwner = doubt.user_id === req.user.id;
+    const isAdmin = req.user.role === 'admin';
+
+    if (!isOwner && !isAdmin) {
+      return res.status(403).json({ error: 'Unauthorized to delete this doubt' });
+    }
+
+    // Storage cleanup for doubt attachment
+    if (doubt.attachment_url) {
+      await deleteSupabaseFile(doubt.attachment_url);
+    }
+
+    // Storage cleanup for any answers with attachments
+    const answers = store.answers.filter(a => a.doubt_id === id);
+    for (const answer of answers) {
+      if (answer.attachment_url) {
+        await deleteSupabaseFile(answer.attachment_url);
+      }
+    }
+
+    // Remove doubt
+    store.doubts.splice(doubtIndex, 1);
+    // Remove answers for this doubt
+    store.answers = store.answers.filter(a => a.doubt_id !== id);
+    // Remove likes for this doubt
+    store.doubt_likes = store.doubt_likes.filter(l => l.doubt_id !== id);
+
+    res.json({ message: 'Doubt deleted successfully' });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

@@ -47,4 +47,22 @@ if (supabaseUrl && serviceKey && supabaseUrl.startsWith('http')) {
   }
 }
 
-module.exports = { supabase, supabaseService };
+// Delete file from Supabase Storage
+async function deleteSupabaseFile(fileUrl) {
+  if (!fileUrl || !fileUrl.includes('Chat_hub')) return;
+  // Extract filename from URL - it should be the last part of the path
+  const parts = fileUrl.split('/');
+  const filename = parts[parts.length - 1];
+  
+  if (supabaseService) {
+    try {
+      const { error } = await supabaseService.storage.from('Chat_hub').remove([filename]);
+      if (error) console.error('Error deleting file from Supabase:', error);
+      else console.log('Successfully deleted file from Supabase:', filename);
+    } catch (err) {
+      console.error('Error in deleteSupabaseFile:', err);
+    }
+  }
+}
+
+module.exports = { supabase, supabaseService, deleteSupabaseFile };

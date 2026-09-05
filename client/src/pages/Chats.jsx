@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
-import { MessageSquare, Send, Paperclip, User, Camera, FileText, Download, Reply, X, Mic } from 'lucide-react';
+import { MessageSquare, Send, Paperclip, User, Camera, FileText, Download, Reply, X, Mic, Trash2 } from 'lucide-react';
 import CameraCapture from '../components/CameraCapture';
 import VoiceRecorder from '../components/VoiceRecorder';
 import { getApiBase } from '../services/api';
@@ -33,11 +33,16 @@ const Chats = () => {
       if (msg.room_id !== channel && !msg.recipient_id) return;
       // For DM messages, only show if relevant to current user
       if (msg.recipient_id && msg.recipient_id !== user.id && msg.sender_id !== user.id) return;
+      
       // Skip the realtime echo of a message this client already added optimistically
       setMessages(prev => {
         if (msg.client_msg_id && prev.some(m => m.client_msg_id === msg.client_msg_id)) return prev;
         return [...prev, msg];
       });
+    });
+
+    socketRef.current.on('delete_chat_message', (messageId) => {
+      setMessages(prev => prev.filter(m => m.id !== messageId));
     });
 
     fetch(`${API_BASE}/chats/messages/group/${channel}`, {
@@ -73,6 +78,25 @@ const Chats = () => {
     socketRef.current.emit('send_chat_message', msgData);
     setMessage('');
     setReplyTo(null);
+  };
+
+  const handleDeleteMessage = async (messageId) => {
+    if (!window.confirm("Delete this message?\n\nThis action cannot be undone.")) return;
+    try {
+      const res = await fetch(`${API_BASE}/chats/messages/${messageId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        alert(data.error || 'Failed to delete message');
+        return;
+      }
+      setMessages(prev => prev.filter(m => m.id !== messageId));
+    } catch (err) {
+      console.error('Delete error:', err);
+      alert('Error deleting message');
+    }
   };
 
   // Upload any file via the existing /api/uploads endpoint and return its record
@@ -226,7 +250,9 @@ const Chats = () => {
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {messages.map((msg, i) => {
             // Find the replied-to message if this message is a reply
-            const repliedMsg = msg.reply_to_id ? messages.find(m => m.id === msg.reply_to_id) : null;
+            const repliedMsg = msg.reply_to_id 
+              ? (messages.find(m => m.id === msg.reply_to_id) || { id: msg.reply_to_id, sender_name: 'Original Message', message: 'Message deleted', attachment_url: null, isDeletedPlaceholder: true }) 
+              : null;
             return (
               <div key={msg.id || i} id={`msg-${msg.id}`} className={`flex flex-col ${msg.sender_id === user.id ? 'items-end' : 'items-start'}`}>
                 <div className="flex items-center gap-2 mb-1">
@@ -256,14 +282,25 @@ const Chats = () => {
                   {msg.message && <div className="text-sm">{msg.message}</div>}
                   {msg.attachment_url && renderAttachment(msg)}
                 </div>
-                {/* Reply button */}
-                <button
-                  type="button"
-                  onClick={() => setReplyTo(msg)}
-                  className="mt-1 text-[10px] text-slate-500 hover:text-indigo-400 flex items-center gap-1 transition-colors"
-                >
-                  <Reply size={12} /> Reply
-                </button>
+                {/* Actions */}
+                <div className="mt-1 flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setReplyTo(msg)}
+                    className="text-[10px] text-slate-500 hover:text-indigo-400 flex items-center gap-1 transition-colors"
+                  >
+                    <Reply size={12} /> Reply
+                  </button>
+                  {(msg.sender_id === user.id || user.role === 'admin') && (
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteMessage(msg.id)}
+                      className="text-[10px] text-rose-500 hover:text-rose-400 flex items-center gap-1 transition-colors"
+                    >
+                      <Trash2 size={12} /> Delete
+                    </button>
+                  )}
+                </div>
               </div>
             );
           })}

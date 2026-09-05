@@ -5,6 +5,7 @@ const fs = require('fs');
 const { v4: uuidv4 } = require('uuid');
 const store = require('../db/store');
 const { authenticateToken, requireAdmin } = require('../middleware/auth');
+const { deleteSupabaseFile } = require('../config/supabase');
 
 // All endpoints in this route require Admin authentication
 router.use(authenticateToken, requireAdmin);
@@ -69,13 +70,27 @@ router.delete('/users/:id', (req, res) => {
 });
 
 // DELETE a doubt / question
-router.delete('/doubts/:id', (req, res) => {
+router.delete('/doubts/:id', async (req, res) => {
   const index = store.doubts.findIndex(d => d.id === req.params.id);
   if (index === -1) return res.status(404).json({ error: 'Question not found' });
+
+  const doubt = store.doubts[index];
+  if (doubt.attachment_url) {
+    await deleteSupabaseFile(doubt.attachment_url);
+  }
+
+  const answers = store.answers.filter(a => a.doubt_id === req.params.id);
+  for (const answer of answers) {
+    if (answer.attachment_url) {
+      await deleteSupabaseFile(answer.attachment_url);
+    }
+  }
 
   store.doubts.splice(index, 1);
   // Also remove answers for this doubt
   store.answers = store.answers.filter(a => a.doubt_id !== req.params.id);
+  // Also remove likes for this doubt
+  store.doubt_likes = store.doubt_likes.filter(l => l.doubt_id !== req.params.id);
 
   res.json({ message: 'Question and associated answers deleted successfully' });
 });
@@ -134,11 +149,15 @@ router.post('/broadcast', (req, res) => {
 });
 
 // DELETE uploaded file
-router.delete('/uploads/:id', (req, res) => {
+router.delete('/uploads/:id', async (req, res) => {
   const index = store.uploads.findIndex(u => u.id === req.params.id);
   if (index === -1) return res.status(404).json({ error: 'File record not found' });
 
   const fileRecord = store.uploads[index];
+  if (fileRecord.file_url) {
+    await deleteSupabaseFile(fileRecord.file_url);
+  }
+
   const filePath = path.join(__dirname, '../../uploads', path.basename(fileRecord.file_url));
 
   if (fs.existsSync(filePath)) {

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api, getApiBase } from '../services/api';
-import { PlusCircle, Search, MessageCircle, ThumbsUp, Eye, Tag, Image as ImageIcon, Mic, Camera, X, Loader2, RotateCcw } from 'lucide-react';
+import { PlusCircle, Search, MessageCircle, ThumbsUp, Eye, Tag, Image as ImageIcon, Mic, Camera, X, Loader2, RotateCcw, Trash2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import CameraCapture from '../components/CameraCapture';
 import VoiceRecorder from '../components/VoiceRecorder';
@@ -12,6 +12,7 @@ const MAX_AUDIO_SIZE = 25 * 1024 * 1024; // 25MB
 const Doubts = () => {
   const [doubts, setDoubts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const user = JSON.parse(localStorage.getItem('user') || '{}');
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState({ tag: '', status: '', sort: 'latest' });
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -144,6 +145,27 @@ const Doubts = () => {
     }
   };
 
+  const handleDeleteDoubt = async (e, doubtId) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!window.confirm("Delete this doubt?\n\nThis action cannot be undone.")) return;
+    try {
+      const res = await fetch(`${API_BASE}/doubts/${doubtId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        alert(data.error || 'Failed to delete doubt');
+        return;
+      }
+      setDoubts(prev => prev.filter(d => d.id !== doubtId));
+    } catch (err) {
+      console.error('Delete doubt error:', err);
+      alert('Error deleting doubt');
+    }
+  };
+
   const openModal = () => { resetModal(); setIsModalOpen(true); };
 
   return (
@@ -175,10 +197,17 @@ const Doubts = () => {
               {d.attachment_url && !d.attachment_type?.startsWith('image/') && !d.attachment_type?.startsWith('audio/') && (
                 <p className="text-slate-400 text-sm mb-4 flex items-center gap-2"><Tag size={14} /> {d.attachment_name || 'Attachment'}</p>
               )}
-              <div className="flex items-center gap-4 text-slate-400 text-xs border-t border-slate-800 pt-4">
-                <span className="flex items-center gap-1"><ThumbsUp size={14}/> {d.likes_count}</span>
-                <span className="flex items-center gap-1"><MessageCircle size={14}/> {d.answers_count}</span>
-                <span className="ml-auto italic">by {d.anonymous_name}</span>
+              <div className="flex items-center gap-4 text-slate-400 text-xs border-t border-slate-800 pt-4 justify-between">
+                <div className="flex items-center gap-4">
+                  <span className="flex items-center gap-1"><ThumbsUp size={14}/> {d.likes_count}</span>
+                  <span className="flex items-center gap-1"><MessageCircle size={14}/> {d.answers_count}</span>
+                  <span className="italic">by {d.anonymous_name}</span>
+                </div>
+                {(d.user_id === user.id || user.role === 'admin') && (
+                  <button onClick={(e) => handleDeleteDoubt(e, d.id)} className="text-rose-500 hover:text-rose-400 flex items-center gap-1">
+                    <Trash2 size={14} /> Delete
+                  </button>
+                )}
               </div>
             </Link>
           ))}

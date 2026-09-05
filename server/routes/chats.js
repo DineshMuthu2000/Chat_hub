@@ -3,6 +3,8 @@ const router = express.Router();
 const store = require('../db/store');
 const { createChatMessage } = require('../services/chatService');
 const { authenticateToken } = require('../middleware/auth');
+const { deleteSupabaseFile } = require('../config/supabase');
+const { getIo } = require('../socket');
 
 // GET group channels list
 router.get('/channels', authenticateToken, (req, res) => {
@@ -85,6 +87,52 @@ router.post('/messages', authenticateToken, (req, res) => {
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
+// DELETE a message
+router.delete('/messages/:messageId', authenticateToken, async (req, res) => {
+  try {
+    const { messageId } = req.params;
+    const messageIndex = store.chat_messages.findIndex(m => m.id === messageId);
+    
+    if (messageIndex === -1) {
+      return res.status(404).json({ error: 'Message not found' });
+    }
+    
+    const message = store.chat_messages[messageIndex];
+    
+    // Authorization: Owner or Admin
+    const isOwner = message.sender_id === req.user.id;
+    const isAdmin = req.user.role === 'admin';
+    
+    if (!isOwner && !isAdmin) {
+      return res.status(403).json({ error: 'Unauthorized to delete this message' });
+    }
+    
+    // Remove from store
+    store.chat_messages.splice(messageIndex, 1);
+    
+    // Cleanup storage
+    if (message.attachment_url) {
+      await deleteSupabaseFile(message.attachment_url);
+    }
+    
+    // Broadcast deletion
+    const io = getIo();
+    if (io) {
+      // Broadcast to group or DM parties
+      if (message.recipient_id) {
+        io.emit(`dm_${message.sender_id}_${message.recipient_id}`, { type: 'delete', message_id: messageId });
+        io.emit(`dm_${message.recipient_id}_${message.sender_id}`, { type: 'delete', message_id: messageId });
+      } else {
+        io.to(message.room_id).emit('delete_chat_message', messageId);
+      }
+    }
+    
+    res.status(200).json({ message: 'Message deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 });
 
 module.exports = router;
