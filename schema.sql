@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS public.doubts (
     attachment_url TEXT,
     attachment_type VARCHAR(50),
     attachment_name VARCHAR(255),
+    attachment_size BIGINT,
     likes_count INT DEFAULT 0,
     views_count INT DEFAULT 0,
     answers_count INT DEFAULT 0,

@@ -1,3 +1,0 @@
-DIRECT :5000 -> 200 | {"message":"Joined anonymously successfully!","token":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjlkMGMwZjY3LWU5YTUt
-PROXY :3000 -> 404 | 
-PROXY :3000 root -> 404 | hasRoot: false

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ThumbsUp, MessageCircle, ArrowLeft, Send, CheckCircle } from 'lucide-react';
+import { ThumbsUp, MessageCircle, ArrowLeft, Send, CheckCircle, Tag } from 'lucide-react';
 import { api, getApiBase } from '../services/api';
 
 const API_BASE = getApiBase();
@@ -72,7 +72,22 @@ const DoubtDetail = () => {
           <h1 className="text-3xl font-bold text-slate-100">{doubt.title}</h1>
           {doubt.is_solved && <span className="bg-emerald-500/10 text-emerald-400 text-sm px-3 py-1 rounded-full border border-emerald-500/20">Solved</span>}
         </div>
-        <p className="text-slate-300 text-lg whitespace-pre-wrap mb-8">{doubt.content}</p>
+        {doubt.content && <p className="text-slate-300 text-lg whitespace-pre-wrap mb-6">{doubt.content}</p>}
+        {/* Attachment: image / audio / other */}
+        {doubt.attachment_url && doubt.attachment_type?.startsWith('image/') && (
+          <img src={doubt.attachment_url} alt={doubt.attachment_name || 'question image'} className="max-w-full max-h-96 rounded-xl mb-6 border border-slate-700/50" />
+        )}
+        {doubt.attachment_url && doubt.attachment_type?.startsWith('audio/') && (
+          <div className="bg-slate-900 border border-slate-700/50 rounded-xl p-4 mb-6 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-indigo-600/20 flex items-center justify-center shrink-0">🎙️</div>
+            <audio controls src={doubt.attachment_url} className="w-full" preload="none" />
+          </div>
+        )}
+        {doubt.attachment_url && !doubt.attachment_type?.startsWith('image/') && !doubt.attachment_type?.startsWith('audio/') && (
+          <a href={doubt.attachment_url} download={doubt.attachment_name} className="inline-flex items-center gap-2 bg-slate-900 border border-slate-700/50 rounded-xl px-4 py-3 mb-6 text-indigo-400">
+            <Tag size={16} /> {doubt.attachment_name || 'Attachment'}
+          </a>
+        )}
         <div className="flex items-center justify-between border-t border-slate-800 pt-6">
           <div className="flex items-center gap-6">
             <button onClick={handleLike} className={`flex items-center gap-2 ${doubt.is_liked ? 'text-indigo-400' : 'text-slate-400'}`}>

@@ -1,6 +1,0 @@
-1. JOIN via proxy: 200 | user: CosmicSpark24
-2. UPLOAD via proxy: 200 | file: /uploads/1788422261137-fca28dff-a7a7-450f-a959-dfbe9cfcd216.png | type: image/png
-3. SOCKET roundtrip via 5000: YES - msg received with attachment
-4. HISTORY via proxy: 200 | contains attachment: YES
-5. IMG serve via proxy: 200 | content-type: image/png
-E2E_BROWSER_PATH: PASS

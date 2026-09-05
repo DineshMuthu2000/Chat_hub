@@ -25,12 +25,38 @@ const storage = multer.diskStorage({
   }
 });
 
-// File filter for allowed community file types
-const fileFilter = (req, file, cb) => {
-  const allowedExtensions = /\.(jpeg|jpg|png|gif|webp|svg|mp4|webm|mkv|mov|mp3|wav|ogg|aac|pdf|doc|docx|ppt|pptx|xls|xlsx|txt|zip)$/i;
-  const isExtAllowed = allowedExtensions.test(path.extname(file.originalname).toLowerCase());
+// File filter — validates by MIME type AND extension (never extension alone).
+// Blocks executables/scripts; allows images, audio, video, PDFs, office docs, txt, zip.
+const ALLOWED_MIMES = new Set([
+  // images
+  'image/jpeg', 'image/pjpeg', 'image/png', 'image/gif', 'image/webp',
+  'image/svg+xml', 'image/heic', 'image/heif',
+  // video
+  'video/mp4', 'video/webm', 'video/x-matroska', 'video/quicktime',
+  // audio
+  'audio/webm', 'audio/ogg', 'audio/mpeg', 'audio/mp3', 'audio/mp4',
+  'audio/mp4a-latm', 'audio/x-m4a', 'audio/wav', 'audio/x-wav', 'audio/aac',
+  // documents
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-powerpoint',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'text/plain',
+  // archives
+  'application/zip', 'application/x-zip-compressed'
+]);
 
-  if (isExtAllowed) {
+const ALLOWED_EXT = /\.(jpeg|jpg|pjpg|png|gif|webp|svg|heic|heif|mp4|webm|mkv|mov|mp3|m4a|wav|ogg|aac|pdf|doc|docx|ppt|pptx|xls|xlsx|txt|zip)$/i;
+
+const fileFilter = (req, file, cb) => {
+  const mimetype = (file.mimetype || '').toLowerCase();
+  const ext = path.extname(file.originalname || '').toLowerCase();
+
+  // Both the detected MIME type and the extension must be on the allowlist
+  if (ALLOWED_MIMES.has(mimetype) && ALLOWED_EXT.test(ext)) {
     return cb(null, true);
   }
   cb(new Error('File format not supported! Allowed: Images, Videos, Audio, PDFs, Office Documents, TXT & ZIP files.'));

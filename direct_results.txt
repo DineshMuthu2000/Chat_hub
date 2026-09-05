@@ -1,5 +1,0 @@
-1. JOIN direct: QuantumStarlight16
-2. UPLOAD direct: /uploads/1788424809206-ac66ccf2-3191-4ae0-89d9-660365ec5917.png
-3. REST chat msg: 201 | id: YES
-4. RECEIVER got photo: YES
-DIRECT_BACKEND_FLOW: PASS

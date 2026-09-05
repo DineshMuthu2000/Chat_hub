@@ -41,13 +41,18 @@ router.get('/:id', optionalAuth, (req, res) => {
 
 router.post('/', authenticateToken, (req, res) => {
   try {
-    const { title, content, tags, attachment_url, attachment_type, attachment_name } = req.body;
-    if (!title || !content) return res.status(400).json({ error: 'Title and content required' });
+    const { title, content, tags, attachment_url, attachment_type, attachment_name, attachment_size } = req.body;
+    if (!title || !title.trim()) return res.status(400).json({ error: 'Title required' });
+    // Voice / photo / image questions may have no text — require content OR attachment
+    if ((!content || !content.trim()) && !attachment_url) {
+      return res.status(400).json({ error: 'Add text or attach a voice/photo/image' });
+    }
     const newDoubt = {
       id: uuidv4(), user_id: req.user.id, anonymous_name: req.user.username,
-      title: title.trim(), content: content.trim(),
+      title: title.trim(), content: content ? content.trim() : '',
       tags: Array.isArray(tags) ? tags : (tags ? tags.split(',').map(t => t.trim()).filter(Boolean) : []),
-      attachment_url: attachment_url || null, attachment_type: attachment_type || null, attachment_name: attachment_name || null,
+      attachment_url: attachment_url || null, attachment_type: attachment_type || null,
+      attachment_name: attachment_name || null, attachment_size: attachment_size || null,
       likes_count: 0, views_count: 0, answers_count: 0, is_solved: false, is_featured: false,
       created_at: new Date().toISOString()
     };
