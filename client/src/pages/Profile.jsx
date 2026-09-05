@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { User, Calendar, Shield, Award, LogOut, RefreshCw } from 'lucide-react';
-import { api } from '../services/api';
+import { api, getApiBase } from '../services/api';
+
+const API_BASE = getApiBase();
 
 const Profile = () => {
   const [user, setUser] = useState(JSON.parse(localStorage.getItem('user') || '{}'));
@@ -12,7 +14,7 @@ const Profile = () => {
 
   const handleRegenerate = async () => {
     try {
-      const res = await fetch('/api/auth/regenerate-name', {
+      const res = await fetch(`${API_BASE}/auth/regenerate-name`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
       }).then(r => r.json());

@@ -3,6 +3,9 @@ import { io } from 'socket.io-client';
 import { MessageSquare, Send, Paperclip, User, Camera, FileText, Download, Reply, X, Mic } from 'lucide-react';
 import CameraCapture from '../components/CameraCapture';
 import VoiceRecorder from '../components/VoiceRecorder';
+import { getApiBase } from '../services/api';
+
+const API_BASE = getApiBase();
 
 // Unique id per client-sent message, used to dedupe the realtime echo
 const makeClientId = () =>
@@ -37,7 +40,7 @@ const Chats = () => {
       });
     });
 
-    fetch(`/api/chats/messages/group/${channel}`, {
+    fetch(`${API_BASE}/chats/messages/group/${channel}`, {
       headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
     })
     .then(r => r.json())
@@ -76,7 +79,7 @@ const Chats = () => {
   const uploadAttachment = async (file) => {
     const fd = new FormData();
     fd.append('file', file);
-    const res = await fetch('/api/uploads', {
+    const res = await fetch(`${API_BASE}/uploads`, {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` },
       body: fd
@@ -107,7 +110,7 @@ const Chats = () => {
       reply_to_id: replyTo ? replyTo.id : null
     };
 
-    const res = await fetch('/api/chats/messages', {
+    const res = await fetch(`${API_BASE}/chats/messages`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` },
       body: JSON.stringify(payload)

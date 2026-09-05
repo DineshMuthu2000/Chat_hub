@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { ThumbsUp, MessageCircle, ArrowLeft, Send, CheckCircle } from 'lucide-react';
-import { api } from '../services/api';
+import { api, getApiBase } from '../services/api';
+
+const API_BASE = getApiBase();
 
 const DoubtDetail = () => {
   const { id } = useParams();
@@ -21,7 +23,7 @@ const DoubtDetail = () => {
 
   const handleLike = async () => {
     try {
-      const res = await fetch(`/api/doubts/${id}/like`, {
+      const res = await fetch(`${API_BASE}/doubts/${id}/like`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
       }).then(r => r.json());
@@ -35,7 +37,7 @@ const DoubtDetail = () => {
     e.preventDefault();
     if (!answer.trim()) return;
     try {
-      const res = await fetch(`/api/doubts/${id}/answers`, {
+      const res = await fetch(`${API_BASE}/doubts/${id}/answers`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -49,7 +51,7 @@ const DoubtDetail = () => {
 
   const handleAcceptAnswer = async (answerId) => {
     try {
-      await fetch(`/api/doubts/${id}/answers/${answerId}/accept`, {
+      await fetch(`${API_BASE}/doubts/${id}/answers/${answerId}/accept`, {
         method: 'PUT',
         headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
       });

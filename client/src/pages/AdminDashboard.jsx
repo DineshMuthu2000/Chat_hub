@@ -1,4 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import { getApiBase } from '../services/api';
+
+const API_BASE = getApiBase();
 
 export default function AdminDashboard() {
   const [pw, setPw] = useState('');
@@ -15,27 +18,33 @@ export default function AdminDashboard() {
 
   const handleLogin = async (e) => {
     e.preventDefault();
-    const r = await fetch('/api/auth/admin-login', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: pw })
-    });
-    const d = await r.json();
-    if (r.ok) { localStorage.setItem('adminToken', d.token); setToken(d.token); }
-    else setErr(d.error || 'Failed');
+    setErr('');
+    try {
+      const r = await fetch(`${API_BASE}/auth/admin-login`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: pw })
+      });
+      const d = await r.json();
+      if (r.ok) { localStorage.setItem('adminToken', d.token); setToken(d.token); }
+      else setErr(d.error || 'Failed');
+    } catch (networkErr) {
+      console.error('Admin login network error:', networkErr);
+      setErr('Cannot reach backend. Check VITE_API_URL.');
+    }
   };
 
   const fetchTab = async () => {
     if (!token) return;
-    const get = async (url) => (await fetch(url, { headers: h })).json();
-    if (tab === 'stats') setStats(await get('/api/admin/stats'));
-    if (tab === 'users') setUsers(await get('/api/admin/users'));
-    if (tab === 'doubts') setDoubts(await (await fetch('/api/doubts')).json());
-    if (tab === 'uploads') setUploads(await get('/api/uploads'));
+    const get = async (url) => (await fetch(`${API_BASE}${url}`, { headers: h })).json();
+    if (tab === 'stats') setStats(await get('/admin/stats'));
+    if (tab === 'users') setUsers(await get('/admin/users'));
+    if (tab === 'doubts') setDoubts(await (await fetch(`${API_BASE}/doubts`)).json());
+    if (tab === 'uploads') setUploads(await get('/uploads'));
   };
 
   useEffect(() => { fetchTab(); }, [token, tab]);
 
   const toggle = async (uid, cur) => {
-    await fetch(`/api/admin/users/${uid}/status`, {
+    await fetch(`${API_BASE}/admin/users/${uid}/status`, {
       method: 'PUT', headers: h, body: JSON.stringify({ status: cur === 'active' ? 'banned' : 'active' })
     });
     fetchTab();
@@ -82,7 +91,7 @@ export default function AdminDashboard() {
               <td className="p-3">{u.username}</td><td className="p-3 uppercase text-xs">{u.role}</td><td className="p-3">{u.status}</td>
               <td className="p-3 text-right space-x-2">{u.role !== 'admin' && (
                 <><button onClick={() => toggle(u.id, u.status)} className="text-xs text-amber-400">{u.status === 'active'?'Ban':'Unban'}</button>
-                <button onClick={() => del(`/api/admin/users/${u.id}`)} className="text-xs text-red-400">Delete</button></>
+                <button onClick={() => del(`${API_BASE}/admin/users/${u.id}`)} className="text-xs text-red-400">Delete</button></>
               )}</td>
             </tr>
           ))}</tbody>
@@ -91,19 +100,19 @@ export default function AdminDashboard() {
       {tab === 'doubts' && doubts.map(d => (
         <div key={d.id} className="bg-slate-800 p-4 rounded flex justify-between">
           <div>{d.title}<div className="text-xs text-slate-400">By {d.anonymous_name}</div></div>
-          <button onClick={() => del(`/api/admin/doubts/${d.id}`)} className="text-red-400">Delete</button>
+          <button onClick={() => del(`${API_BASE}/admin/doubts/${d.id}`)} className="text-red-400">Delete</button>
         </div>
       ))}
       {tab === 'uploads' && uploads.map(f => (
         <div key={f.id} className="bg-slate-800 p-4 rounded flex justify-between">
           <div>{f.file_name}<div className="text-xs text-slate-400">By {f.uploader_name}</div></div>
-          <button onClick={() => del(`/api/admin/uploads/${f.id}`)} className="text-red-400">Delete</button>
+          <button onClick={() => del(`${API_BASE}/admin/uploads/${f.id}`)} className="text-red-400">Delete</button>
         </div>
       ))}
       {tab === 'broadcast' && (
         <form onSubmit={e => {
           e.preventDefault();
-          fetch('/api/admin/broadcast', { method: 'POST', headers: h, body: JSON.stringify(bc) }).then(() => { alert('Sent!'); setBc({title:'',message:''}); });
+          fetch(`${API_BASE}/admin/broadcast`, { method: 'POST', headers: h, body: JSON.stringify(bc) }).then(() => { alert('Sent!'); setBc({title:'',message:''}); });
         }} className="bg-slate-800 p-6 rounded space-y-4 max-w-md mx-auto">
           <input required placeholder="Title" value={bc.title} onChange={e => setBc({...bc, title: e.target.value})} className="w-full bg-slate-900 p-3 rounded" />
           <textarea required placeholder="Message" value={bc.message} onChange={e => setBc({...bc, message: e.target.value})} className="w-full bg-slate-900 p-3 rounded" />

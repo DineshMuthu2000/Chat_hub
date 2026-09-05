@@ -1,4 +1,10 @@
-const API_BASE = import.meta.env.VITE_API_URL;
+// Resolve the backend API base URL.
+// In production on Vercel, VITE_API_URL points to the Render backend (e.g.
+// https://your-backend.onrender.com/api). Local dev falls back to '/api' (Vite proxy).
+const API_BASE = (import.meta.env.VITE_API_URL || '/api').replace(/\/$/, '');
+
+export const getApiBase = () => API_BASE;
+
 const getAuthHeader = () => {
   const token = localStorage.getItem('token');
   return token ? { 'Authorization': `Bearer ${token}` } : {};
