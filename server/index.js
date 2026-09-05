@@ -18,21 +18,66 @@ const uploadRoutes = require('./routes/uploads');
 const notificationRoutes = require('./routes/notifications');
 const adminRoutes = require('./routes/admin');
 
+// ---------------------------------------------------------------------------
+// CORS configuration
+//
+// Allowed origins (production frontend on Vercel + localhost for development).
+// Override the list via the CORS_ORIGIN env var (comma-separated) if needed.
+// ---------------------------------------------------------------------------
+const DEFAULT_ALLOWED_ORIGINS = [
+  'https://chat-hub-blush.vercel.app',      // production frontend (Vercel)
+  'http://localhost:3000',                   // local dev (Vite)
+  'http://localhost:5173',                   // local dev (Vite default alt port)
+  'http://127.0.0.1:3000',
+  'http://127.0.0.1:5173',
+  'http://localhost:5000'                    // local backend (same-origin/dev)
+];
+
+const allowedOrigins = process.env.CORS_ORIGIN
+  ? process.env.CORS_ORIGIN.split(',').map(o => o.trim()).filter(Boolean)
+  : DEFAULT_ALLOWED_ORIGINS;
+
+const corsOptions = {
+  origin: (origin, callback) => {
+    // Allow requests with no origin (curl, Postman, same-server calls)
+    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      callback(null, false); // Block unknown origins (no CORS headers sent)
+    }
+  },
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  exposedHeaders: ['Content-Length', 'Content-Disposition'],
+  credentials: true,
+  optionsSuccessStatus: 204,
+  preflightContinue: false
+};
+
 const app = express();
 const server = http.createServer(app);
 
 const io = new Server(server, {
   cors: {
-    origin: '*',
-    methods: ['GET', 'POST', 'PUT', 'DELETE']
+    origin: allowedOrigins,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true
   }
 });
 
 // Share the io instance so REST routes can broadcast realtime chat events
 setIo(io);
 
+// ---------------------------------------------------------------------------
 // Middlewares
-app.use(cors());
+// ---------------------------------------------------------------------------
+// Enable CORS for ALL routes (handles preflight OPTIONS requests automatically)
+app.use(cors(corsOptions));
+
+// Explicitly handle OPTIONS preflight for any route (belt-and-suspenders)
+app.options('*', cors(corsOptions));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
